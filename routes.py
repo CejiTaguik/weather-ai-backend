@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from models import RecommendationRequest, RecommendationResponse, WeatherResponse
 from services import generate_recommendation, get_weather_data
 
+# Create a router
 router = APIRouter()
 
 # AI Recommendation Route
@@ -17,7 +18,7 @@ async def get_recommendation(request: RecommendationRequest):
 @router.get("/weather", response_model=WeatherResponse)
 async def get_weather(
     latitude: float = Query(..., description="Latitude of the location"),
-    longitude: float = Query(..., description="Longitude of the location")
+    longitude: float = Query(..., description="Longitude of the location"),
 ):
     try:
         weather_data = get_weather_data(latitude, longitude)
@@ -25,4 +26,4 @@ async def get_weather(
             raise HTTPException(status_code=500, detail=weather_data["error"])
         return weather_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Exception: {str(e)}")
