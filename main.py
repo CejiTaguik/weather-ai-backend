@@ -1,7 +1,12 @@
 from fastapi import FastAPI
-from routes import router
+from routes import weather_router
 
 app = FastAPI(title="Weather AI Backend")
 
-# Include all routes
-app.include_router(router)
+# Include the weather router
+app.include_router(weather_router, prefix="/api")
+
+# Root endpoint
+@app.get("/")
+def home():
+    return {"message": "Weather AI Backend is running!"}
