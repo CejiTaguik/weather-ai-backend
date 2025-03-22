@@ -13,8 +13,8 @@ async def get_recommendation(request: RecommendationRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Weather Data Endpoint
-@recommendation_router.get("/weather/{location}")
+# 🌤️ Weather API Endpoint
+@recommendation_router.get("/weather")
 async def get_weather(location: str):
     try:
         weather_data = get_weather_data(location)
@@ -22,4 +22,4 @@ async def get_weather(location: str):
             raise HTTPException(status_code=500, detail=weather_data["error"])
         return weather_data
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
