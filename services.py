@@ -1,13 +1,22 @@
 import os
+import requests
 from openai import OpenAI
 from dotenv import load_dotenv
-import requests
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize OpenAI client with API key
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Retrieve API keys from environment variables
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+METEOMATICS_USER = os.getenv("METEOMATICS_USER")
+METEOMATICS_PASS = os.getenv("METEOMATICS_PASS")
+
+# Debugging: Ensure environment variables are loaded correctly (REMOVE after confirming it works)
+print("Loaded METEOMATICS_USER:", METEOMATICS_USER)
+print("Loaded METEOMATICS_PASS:", METEOMATICS_PASS)
+
+# Initialize OpenAI client
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
@@ -29,29 +38,38 @@ def generate_recommendation(user_input: str) -> str:
 # Function to fetch weather data from Meteomatics API
 def get_weather_data(location: str):
     try:
-        # Meteomatics API credentials
-        meteo_api_url = "https://api.meteomatics.com/"
-        meteo_user = os.getenv("METEOMATICS_USER")
-        meteo_pass = os.getenv("METEOMATICS_PASS")
+        # Validate credentials
+        if not METEOMATICS_USER or not METEOMATICS_PASS:
+            return {"error": "Meteomatics API credentials are missing."}
 
-        # Define parameters for weather request
-        params = {
-            "temperature": "t_2m:C",
-            "humidity": "humidity_2m:p",
-            "pressure": "msl_pressure:hPa",
-            "uv_index": "uv:idx"
-        }
+        # Define Meteomatics API base URL
+        meteo_api_url = "https://api.meteomatics.com/"
+
+        # Define weather parameters
+        params = [
+            "t_2m:C",  # Temperature (Celsius)
+            "humidity_2m:p",  # Humidity (%)
+            "msl_pressure:hPa",  # Pressure (hPa)
+            "uv:idx"  # UV Index
+        ]
 
         # Construct the full API request URL
-        endpoint = f"{meteo_api_url}now/{','.join(params.values())}/{location}/json"
+        endpoint = f"{meteo_api_url}now/{','.join(params)}/{location}/json"
 
-        # Send the request
-        response = requests.get(endpoint, auth=(meteo_user, meteo_pass))
+        print("Requesting Meteomatics API:", endpoint)  # Debugging
 
+        # Send the request with basic authentication
+        response = requests.get(endpoint, auth=(METEOMATICS_USER, METEOMATICS_PASS))
+
+        # Log the response details
+        print("Meteomatics Response Code:", response.status_code)
+        print("Meteomatics Response Text:", response.text)
+
+        # Return JSON response if successful
         if response.status_code == 200:
             return response.json()
         else:
-            return {"error": f"Failed to fetch weather data: {response.status_code}"}
+            return {"error": f"Failed to fetch weather data: {response.status_code}, Response: {response.text}"}
 
     except Exception as e:
-        return {"error": f"Exception: {str(e)}"}
+        return {"error": f"Exception occurred: {str(e)}"}
