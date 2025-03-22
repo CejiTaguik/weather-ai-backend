@@ -6,13 +6,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# OpenAI Client
+# Initialize OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# XWeather API Credentials
-XWEATHER_API_ID = os.getenv("XWEATHER_API_ID")
-XWEATHER_API_SECRET = os.getenv("XWEATHER_API_SECRET")
-XWEATHER_NAMESPACE = os.getenv("XWEATHER_NAMESPACE")
 
 # Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
@@ -30,21 +25,28 @@ def generate_recommendation(user_input: str) -> str:
     except Exception as e:
         return f"Error generating recommendation: {str(e)}"
 
-# Function to fetch weather data from XWeather API
+# Function to fetch weather data from WeatherAPI
 def get_weather_data(latitude: float, longitude: float):
     try:
-        url = f"https://platform.xweather.com/v1/weather?lat={latitude}&lon={longitude}"
-        headers = {
-            "X-API-Key": XWEATHER_API_ID,
-            "X-API-Secret": XWEATHER_API_SECRET,
-            "X-API-Namespace": XWEATHER_NAMESPACE
+        api_key = os.getenv("WEATHERAPI_KEY")
+        if not api_key:
+            return {"error": "500: WeatherAPI key is missing in environment variables."}
+
+        base_url = "http://api.weatherapi.com/v1/forecast.json"
+        params = {
+            "key": api_key,
+            "q": f"{latitude},{longitude}",
+            "days": 3,  # Fetch 3-day weather forecast
+            "aqi": "no",
+            "alerts": "yes"
         }
-        response = requests.get(url, headers=headers)
+
+        response = requests.get(base_url, params=params)
 
         if response.status_code == 200:
             return response.json()
         else:
-            return {"error": f"Failed to fetch weather data: {response.status_code}, Response: {response.text}"}
+            return {"error": f"Failed to fetch weather data: {response.status_code}, {response.text}"}
 
     except Exception as e:
         return {"error": f"Exception: {str(e)}"}

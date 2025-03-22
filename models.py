@@ -1,15 +1,18 @@
 from pydantic import BaseModel
 
-# AI Recommendation Models
+# Model for AI recommendation request
 class RecommendationRequest(BaseModel):
     user_input: str
 
+# Model for AI recommendation response
 class RecommendationResponse(BaseModel):
     recommendation: str
 
-# Weather Response Model
+# Model for WeatherAPI response
 class WeatherResponse(BaseModel):
+    location: str
     temperature: float
     humidity: float
     pressure: float
     uv_index: float
+    forecast: list

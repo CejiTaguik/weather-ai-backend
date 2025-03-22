@@ -1,29 +1,19 @@
-from fastapi import APIRouter, HTTPException, Query
-from models import RecommendationRequest, RecommendationResponse, WeatherResponse
-from services import generate_recommendation, get_weather_data
+from fastapi import APIRouter, Query
+from services import get_weather_data, generate_recommendation
+from models import RecommendationRequest, RecommendationResponse
 
-# Create a router
-recommendation_router = APIRouter()
+router = APIRouter()
 
-# AI Recommendation Route
-@recommendation_router.post("/recommendation", response_model=RecommendationResponse)
-async def get_recommendation(request: RecommendationRequest):
-    try:
-        recommendation = generate_recommendation(request.user_input)
-        return {"recommendation": recommendation}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# Weather Data Route
-@recommendation_router.get("/weather", response_model=WeatherResponse)
-async def get_weather(
+# Weather route
+@router.get("/weather")
+def fetch_weather(
     latitude: float = Query(..., description="Latitude of the location"),
-    longitude: float = Query(..., description="Longitude of the location"),
+    longitude: float = Query(..., description="Longitude of the location")
 ):
-    try:
-        weather_data = get_weather_data(latitude, longitude)
-        if "error" in weather_data:
-            raise HTTPException(status_code=500, detail=weather_data["error"])
-        return weather_data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Exception: {str(e)}")
+    return get_weather_data(latitude, longitude)
+
+# AI recommendation route
+@router.post("/recommendation", response_model=RecommendationResponse)
+def get_recommendation(request: RecommendationRequest):
+    recommendation = generate_recommendation(request.user_input)
+    return {"recommendation": recommendation}
