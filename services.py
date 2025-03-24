@@ -51,3 +51,10 @@ def generate_recommendation(user_input: str) -> str:
 
     except Exception as e:
         return f"Error generating recommendation: {str(e)}"
+
+# Function to handle AI chat requests
+def ask_ai(user_query: str) -> str:
+    try:
+        return generate_recommendation(user_query)
+    except Exception as e:
+        return f"Error handling AI chat: {str(e)}"
