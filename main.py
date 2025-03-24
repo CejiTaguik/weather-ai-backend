@@ -1,28 +1,19 @@
-from fastapi import APIRouter
-import requests
 import os
+from fastapi import FastAPI
+from routes.weather_routes import weather_router
+from routes.blynk_routes import blynk_router
 
-blynk_router = APIRouter()
+app = FastAPI(title="Weather AI Backend")
 
-# Blynk Authentication Token (Set in .env)
-BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
-BLYNK_SERVER = "https://blynk.cloud/external/api/update"
+# ✅ Include routers
+app.include_router(weather_router, prefix="/api", tags=["Weather"])
+app.include_router(blynk_router, prefix="/blynk", tags=["Blynk"])
 
-# Function to send data to Blynk
-def send_to_blynk(pin: str, value: str):
-    if not BLYNK_AUTH_TOKEN:
-        return {"error": "BLYNK_AUTH_TOKEN is missing"}
+# ✅ Root endpoint to check API status
+@app.get("/")
+def home():
+    return {"message": "Weather AI Backend is running!"}
 
-    url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
-    
-    try:
-        response = requests.get(url)
-        return response.text if response.status_code == 200 else f"Error: {response.text}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
-
-# ✅ Test Endpoint: Send Sample Data to Blynk
-@blynk_router.get("/test")
-def test_blynk():
-    response = send_to_blynk("V1", "Hello from FastAPI")
-    return {"blynk_response": response}
+# ✅ Ensure environment variables are loaded
+if not os.getenv("BLYNK_AUTH_TOKEN"):
+    print("⚠️ Warning: BLYNK_AUTH_TOKEN is missing. Blynk integration may not work.")
