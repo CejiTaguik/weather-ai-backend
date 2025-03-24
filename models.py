@@ -1,14 +1,17 @@
 from pydantic import BaseModel
-from typing import Optional
 
-# Model for weather response
-class WeatherResponse(BaseModel):
+# 🌤️ Model for Weather API Request
+class WeatherRequest(BaseModel):
+    location: str
+
+# 📌 Model for AI-Based Weather Recommendations
+class AIRecommendationRequest(BaseModel):
     temperature: float
     humidity: float
     pressure: float
-    uv_index: Optional[float] = None
-    precipitation: Optional[float] = None
+    uv_index: float
+    location: str
 
-# Model for AI recommendation response
-class RecommendationResponse(BaseModel):
-    recommendation: str
+# 💬 Model for AI Chat Requests (User Input)
+class AIChatRequest(BaseModel):
+    user_query: str
