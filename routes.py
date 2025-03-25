@@ -8,7 +8,7 @@ from services import get_weather_data, generate_recommendation
 router = APIRouter()
 
 # ✅ Blynk Configuration
-BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
+BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN", "YOUR_BLYNK_TOKEN_HERE")
 BLYNK_SERVER = "https://blynk.cloud/external/api/update"
 
 # ✅ Track last request time to prevent overload

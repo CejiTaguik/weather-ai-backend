@@ -3,17 +3,17 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Load environment variables
+# ✅ Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
+# ✅ Initialize OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Load Blynk credentials
+# ✅ Load Blynk credentials
 BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")  # Your Blynk token from .env
 BLYNK_BASE_URL = os.getenv("BLYNK_BASE_URL", "https://blynk.cloud/external/api")
 
-# Function to fetch weather data from Open-Meteo
+# ✅ Function to fetch weather data from Open-Meteo
 def get_weather_data(latitude: float, longitude: float):
     try:
         api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
@@ -28,7 +28,7 @@ def get_weather_data(latitude: float, longitude: float):
 
         response = requests.get(api_url, params=params)
 
-        # Debugging: Print API response in logs
+        # ✅ Debugging: Print API response in logs
         print("Weather API Response:", response.text)
 
         if response.status_code == 200:
@@ -39,7 +39,7 @@ def get_weather_data(latitude: float, longitude: float):
     except Exception as e:
         return {"error": f"Exception in get_weather_data: {str(e)}"}
 
-# Function to generate AI-based recommendations
+# ✅ Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
     try:
         response = openai_client.chat.completions.create(
@@ -56,12 +56,19 @@ def generate_recommendation(user_input: str) -> str:
     except Exception as e:
         return f"Error generating recommendation: {str(e)}"
 
-# Function to send data to Blynk
+# ✅ Function to send data to Blynk
 def send_to_blynk(pin: str, value: str):
+    """Send data to Blynk Cloud and handle responses."""
+    if not BLYNK_AUTH_TOKEN:
+        print("⚠️ ERROR: BLYNK_AUTH_TOKEN is missing!")
+        return {"error": "BLYNK_AUTH_TOKEN is missing"}
+
     url = f"{BLYNK_BASE_URL}/update?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
+    
     try:
         response = requests.get(url)
-        print("Blynk Response:", response.text)  # Debugging log
-        return response.text
+        print(f"📡 Blynk Response: {response.text}")  # ✅ Debugging Log
+        return {"success": response.text} if response.status_code == 200 else {"error": response.text}
+
     except Exception as e:
         return {"error": f"Failed to send data to Blynk: {str(e)}"}
