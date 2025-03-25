@@ -11,7 +11,7 @@ router = APIRouter()
 BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
 BLYNK_SERVER = "https://blynk.cloud/external/api/update"
 
-# ✅ Track last request time to avoid overloading Blynk
+# ✅ Track last request time to prevent overload
 last_blynk_request = datetime.min
 
 def send_to_blynk(pin: str, value: str):
@@ -19,20 +19,28 @@ def send_to_blynk(pin: str, value: str):
     global last_blynk_request
 
     if not BLYNK_AUTH_TOKEN:
+        print("⚠️ ERROR: BLYNK_AUTH_TOKEN is missing!")
         return {"error": "BLYNK_AUTH_TOKEN is missing"}
 
-    # ✅ Prevent too many requests (Only allow 1 per 5 seconds)
-    if datetime.now() - last_blynk_request < timedelta(seconds=5):
+    # ✅ Prevent too many requests (Only allow 1 per 6 seconds)
+    if datetime.now() - last_blynk_request < timedelta(seconds=6):
+        print("⚠️ ERROR: Too many requests, try again later")
         return {"error": "Too many requests, try again later"}
 
     url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
+    print(f"📡 Sending to Blynk: {url}")  # ✅ Debugging Log
 
     try:
         response = requests.get(url)
         last_blynk_request = datetime.now()  # ✅ Update request time
-        return response.text if response.status_code == 200 else f"Error: {response.text}"
+        if response.status_code == 200:
+            return {"success": response.text}
+        else:
+            print(f"⚠️ ERROR: Blynk responded with: {response.text}")
+            return {"error": response.text}
     except Exception as e:
-        return f"Exception: {str(e)}"
+        print(f"⚠️ EXCEPTION: {str(e)}")
+        return {"error": str(e)}
 
 # ✅ Fetch Weather Data & Send to Blynk
 @router.get("/weather")
