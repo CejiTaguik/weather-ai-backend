@@ -1,6 +1,7 @@
+import os
 import uvicorn
 from fastapi import FastAPI
-from routes import router  # Ensure you merged weather + Blynk routes
+from routes import router  # Ensure this is correct
 
 app = FastAPI(title="Weather AI Backend")
 
