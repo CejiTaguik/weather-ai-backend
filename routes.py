@@ -29,6 +29,19 @@ def send_to_blynk(pin: str, value: str):
     except requests.RequestException as e:
         return {"error": f"Exception: {str(e)}"}
 
+# ✅ Convert location to lat/lon
+def get_lat_lon_from_location(location: str):
+    """ Converts a location name to latitude & longitude using Open-Meteo API """
+    try:
+        response = requests.get("https://geocoding-api.open-meteo.com/v1/search", params={"name": location, "count": 1})
+        response.raise_for_status()
+        data = response.json()
+
+        if "results" in data and data["results"]:
+            return data["results"][0]["latitude"], data["results"][0]["longitude"]
+    except requests.RequestException:
+        return None, None
+
 # ✅ Function to fetch weather data (Updates Blynk)
 def get_weather_data(latitude: float, longitude: float):
     try:
@@ -106,14 +119,30 @@ def generate_recommendation(query: str, latitude: float, longitude: float) -> di
     except Exception as e:
         return {"error": f"AI error: {str(e)}"}
 
-# ✅ Weather Endpoint
+# ✅ Weather Endpoint (Supports Both Lat/Lon & Location Name)
 @router.get("/weather")
-def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
+def fetch_weather(location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
+    if location:
+        latitude, longitude = get_lat_lon_from_location(location)
+        if latitude is None or longitude is None:
+            return {"error": "Invalid location"}
+
+    if latitude is None or longitude is None:
+        return {"error": "Latitude and longitude are required"}
+
     return get_weather_data(latitude, longitude)
 
 # ✅ AI Recommendation Endpoint
 @router.get("/recommendation")
-def fetch_recommendation(query: str = Query(...), latitude: float = Query(14.5995), longitude: float = Query(120.9842)):
+def fetch_recommendation(query: str = Query(...), location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
+    if location:
+        latitude, longitude = get_lat_lon_from_location(location)
+        if latitude is None or longitude is None:
+            return {"error": "Invalid location"}
+
+    if latitude is None or longitude is None:
+        return {"error": "Latitude and longitude are required"}
+
     return generate_recommendation(query, latitude, longitude)
 
 # ✅ Blynk Test Endpoint
