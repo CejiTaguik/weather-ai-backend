@@ -21,19 +21,14 @@ router = APIRouter()
 def send_to_blynk(pin: str, value: str):
     if not BLYNK_AUTH_TOKEN:
         return {"error": "BLYNK_AUTH_TOKEN is missing"}
-
     url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
-    
     try:
         response = requests.get(url)
-        if response.status_code == 200 and response.text.strip() == "200":
-            return {"status": "success", "pin": pin, "value": value}
-        else:
-            return {"status": "error", "message": response.text}
+        return response.text if response.status_code == 200 else f"Error: {response.text}"
     except Exception as e:
-        return {"status": "error", "message": f"Exception: {str(e)}"}
+        return f"Exception: {str(e)}"
 
-# ✅ Function to fetch weather data (Fix Open-Meteo issue)
+# ✅ Function to fetch weather data (Updates Blynk)
 def get_weather_data(latitude: float, longitude: float):
     try:
         api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
@@ -47,35 +42,33 @@ def get_weather_data(latitude: float, longitude: float):
         response = requests.get(api_url, params=params)
         if response.status_code != 200:
             return {"error": f"Weather API Error: {response.text}"}
-
+        
         weather_data = response.json()
-
-        # ✅ Ensure "current" exists and is a dictionary
-        current_weather = weather_data.get("current", {})
-        if not isinstance(current_weather, dict):
-            return {"error": "Invalid 'current' weather data format"}
-
-        # ✅ Ensure "daily" exists and is a list
-        daily_weather = weather_data.get("daily", {})
-        if not isinstance(daily_weather, dict) or "temperature_2m_max" not in daily_weather:
-            return {"error": "Invalid 'daily' weather data format"}
-
-        # ✅ Send correct weather data to Blynk
+        
+        if "current" not in weather_data or not isinstance(weather_data["current"], dict):
+            return {"error": "Invalid weather API response"}
+        
+        # Extracting weather values
+        temperature = weather_data["current"].get("temperature_2m", "N/A")
+        humidity = weather_data["current"].get("relative_humidity_2m", "N/A")
+        pressure = weather_data["current"].get("pressure_msl", "N/A")
+        uv_index = weather_data["current"].get("uv_index", "N/A")
+        
+        # ✅ Send data to Blynk with correct Virtual Pins
         send_to_blynk("V8", str(latitude))  # Latitude
         send_to_blynk("V9", str(longitude))  # Longitude
-        send_to_blynk("V10", str(current_weather.get("pressure_msl", "N/A")))  # Pressure
-        send_to_blynk("V11", str(current_weather.get("temperature_2m", "N/A")))  # Temperature
-        send_to_blynk("V12", str(current_weather.get("relative_humidity_2m", "N/A")))  # Humidity
-        send_to_blynk("V13", str(current_weather.get("uv_index", "N/A")))  # UV Index
+        send_to_blynk("V10", str(pressure))  # Pressure
+        send_to_blynk("V11", str(temperature))  # Temperature
+        send_to_blynk("V12", str(humidity))  # Humidity
+        send_to_blynk("V13", str(uv_index))  # UV Index
         send_to_blynk("V6", f"{latitude}, {longitude}")  # Location (Formatted)
-
-        return {"current": current_weather, "daily": daily_weather}
+        
+        return weather_data
     except Exception as e:
         return {"error": str(e)}
 
-
 # ✅ Function to generate AI-based recommendations
-def generate_recommendation(user_input: str):
+def generate_recommendation(user_input: str) -> str:
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
@@ -86,23 +79,25 @@ def generate_recommendation(user_input: str):
             max_tokens=1500,
             temperature=0.7
         )
-
         ai_response = response.choices[0].message.content.strip()
-
+        
+        # ✅ Trim AI response to fit Blynk character limits (max 255 chars)
+        trimmed_response = ai_response[:255]
+        
         # ✅ Send AI response to Blynk Terminal (V14) and Recommendation Widget (V15)
-        send_to_blynk("V14", ai_response[:200])  # Blynk has a char limit, so we trim
-        send_to_blynk("V15", ai_response[:200])
-
-        return {"recommendation": ai_response}
+        send_to_blynk("V14", trimmed_response)  # AI Response for Terminal
+        send_to_blynk("V15", trimmed_response)  # AI Recommendation
+        
+        return {"recommendation": trimmed_response}
     except Exception as e:
         return {"error": f"AI error: {str(e)}"}
 
-# ✅ Weather Endpoint (Fixes issue with Open-Meteo API)
+# ✅ Weather Endpoint (Updates Blynk)
 @router.get("/weather")
 def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
     return get_weather_data(latitude, longitude)
 
-# ✅ AI Recommendation Endpoint (Fixes OpenAI API issue)
+# ✅ AI Recommendation Endpoint (Sends to Terminal Widget V14 & Recommendation Widget V15)
 @router.get("/recommendation")
 def fetch_recommendation(query: str = Query(...)):
     return generate_recommendation(query)
@@ -113,8 +108,8 @@ def test_blynk():
     response = send_to_blynk("V14", "Hello from FastAPI")
     return {"blynk_response": response}
 
-# ✅ Send Custom Data to Blynk (Fixes incorrect status handling)
+# ✅ Send Custom Data to Blynk
 @router.get("/blynk/send")
 def send_blynk_data(pin: str = Query(...), value: str = Query(...)):
     response = send_to_blynk(pin, value)
-    return response
+    return {"blynk_response": response}
