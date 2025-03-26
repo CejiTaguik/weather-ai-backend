@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from router import router  # Import merged router
+from routes import router  
 
 app = FastAPI(title="Weather AI Backend")
 
