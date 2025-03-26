@@ -1,12 +1,18 @@
+
 from fastapi import FastAPI
 from routes import router
-import uvicorn
+from dotenv import load_dotenv
 import os
 
-app = FastAPI()
+# Load environment variables
+load_dotenv()
 
-# Include routes from routes.py
+# Initialize FastAPI app
+app = FastAPI(title="Weather AI Backend")
+
+# Include API routes
 app.include_router(router)
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 10000)), reload=True)
+@app.get("/")
+def home():
+    return {"message": "Weather AI Backend is running!"}

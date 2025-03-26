@@ -1,45 +1,47 @@
+
 import os
 import requests
-from dotenv import load_dotenv
 from openai import OpenAI
+from dotenv import load_dotenv
 
-# ✅ Load environment variables
 load_dotenv()
 
-# ✅ Initialize OpenAI client
+# OpenAI Client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ✅ Load Blynk credentials
-BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")  # Your Blynk token from .env
-BLYNK_BASE_URL = os.getenv("BLYNK_BASE_URL", "https://blynk.cloud/external/api")
+# Blynk Configuration
+BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
+BLYNK_SERVER = "https://blynk.cloud/external/api/update"
 
-# ✅ Function to fetch weather data from Open-Meteo
+def send_to_blynk(pin: str, value: str):
+    if not BLYNK_AUTH_TOKEN:
+        return {"error": "BLYNK_AUTH_TOKEN is missing"}
+    url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
+    try:
+        response = requests.get(url)
+        return response.text if response.status_code == 200 else f"Error: {response.text}"
+    except Exception as e:
+        return f"Exception: {str(e)}"
+
+# Open-Meteo Weather API
+WEATHER_API_URL = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
+
 def get_weather_data(latitude: float, longitude: float):
     try:
-        api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
-
         params = {
             "latitude": latitude,
             "longitude": longitude,
             "current": ["temperature_2m", "relative_humidity_2m", "pressure_msl", "uv_index", "precipitation"],
-            "daily": ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"],
             "timezone": "auto"
         }
-
-        response = requests.get(api_url, params=params)
-
-        # ✅ Debugging: Print API response in logs
-        print("Weather API Response:", response.text)
-
+        response = requests.get(WEATHER_API_URL, params=params)
         if response.status_code == 200:
             return response.json()
         else:
             return {"error": f"Failed to fetch weather data: {response.status_code}, {response.text}"}
-
     except Exception as e:
         return {"error": f"Exception in get_weather_data: {str(e)}"}
 
-# ✅ Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
     try:
         response = openai_client.chat.completions.create(
@@ -52,23 +54,5 @@ def generate_recommendation(user_input: str) -> str:
             temperature=0.7
         )
         return response.choices[0].message.content.strip()
-
     except Exception as e:
         return f"Error generating recommendation: {str(e)}"
-
-# ✅ Function to send data to Blynk
-def send_to_blynk(pin: str, value: str):
-    """Send data to Blynk Cloud and handle responses."""
-    if not BLYNK_AUTH_TOKEN:
-        print("⚠️ ERROR: BLYNK_AUTH_TOKEN is missing!")
-        return {"error": "BLYNK_AUTH_TOKEN is missing"}
-
-    url = f"{BLYNK_BASE_URL}/update?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
-    
-    try:
-        response = requests.get(url)
-        print(f"📡 Blynk Response: {response.text}")  # ✅ Debugging Log
-        return {"success": response.text} if response.status_code == 200 else {"error": response.text}
-
-    except Exception as e:
-        return {"error": f"Failed to send data to Blynk: {str(e)}"}
