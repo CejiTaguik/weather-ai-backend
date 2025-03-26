@@ -43,16 +43,16 @@ def get_weather_data(latitude: float, longitude: float):
         response = requests.get(api_url, params=params)
         response.raise_for_status()
         weather_data = response.json()
-        
+
         if "current" not in weather_data or not isinstance(weather_data["current"], dict):
             return {"error": "Invalid weather API response"}
-        
+
         # Extracting weather values
         temperature = weather_data["current"].get("temperature_2m", "N/A")
         humidity = weather_data["current"].get("relative_humidity_2m", "N/A")
         pressure = weather_data["current"].get("pressure_msl", "N/A")
         uv_index = weather_data["current"].get("uv_index", "N/A")
-        
+
         # ✅ Send data to Blynk with correct Virtual Pins
         blynk_results = {
             "latitude": send_to_blynk("V8", str(latitude)),
@@ -64,14 +64,13 @@ def get_weather_data(latitude: float, longitude: float):
             "location": send_to_blynk("V6", f"{latitude}, {longitude}"),
             "weather_fetch": send_to_blynk("V7", "1")  # Indicate successful fetch
         }
-        
+
         return {"weather": weather_data, "blynk_results": blynk_results}
     except requests.RequestException as e:
         return {"error": f"Weather API request failed: {str(e)}"}
 
 # ✅ Function to generate AI-based recommendations
 def generate_recommendation(query: str, latitude: float, longitude: float) -> dict:
-    # Fetch weather data
     weather_data = get_weather_data(latitude, longitude)
     
     if "weather" in weather_data:
@@ -95,27 +94,25 @@ def generate_recommendation(query: str, latitude: float, longitude: float) -> di
             temperature=0.7
         )
         ai_response = response.choices[0].message.content.strip()
-        
-        # ✅ Trim AI response to fit Blynk character limits (max 255 chars)
-        trimmed_response = ai_response[:255]
-        
-        # ✅ Send AI response to Blynk Terminal (V14) and Recommendation Widget (V15)
+        trimmed_response = ai_response[:255]  # ✅ Trim AI response to fit Blynk character limits
+
+        # ✅ Send AI response to Blynk
         blynk_results = {
             "terminal": send_to_blynk("V14", trimmed_response),
             "recommendation": send_to_blynk("V15", trimmed_response)
         }
-        
+
         return {"recommendation": trimmed_response, "blynk_results": blynk_results}
     except Exception as e:
         return {"error": f"AI error: {str(e)}"}
 
-# ✅ Weather Endpoint (Updates Blynk)
-@router.get("/fetch_weather_api_weather_get")
+# ✅ Weather Endpoint
+@router.get("/weather")
 def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
     return get_weather_data(latitude, longitude)
 
-# ✅ AI Recommendation Endpoint (Now Includes Weather Data)
-@router.get("/fetch_recommendation_api_recommendation_get")
+# ✅ AI Recommendation Endpoint
+@router.get("/recommendation")
 def fetch_recommendation(query: str = Query(...), latitude: float = Query(14.5995), longitude: float = Query(120.9842)):
     return generate_recommendation(query, latitude, longitude)
 
