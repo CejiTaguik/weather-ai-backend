@@ -33,7 +33,7 @@ def send_to_blynk(pin: str, value: str):
     except Exception as e:
         return {"status": "error", "message": f"Exception: {str(e)}"}
 
-# ✅ Function to fetch weather data (Fixes Open-Meteo API issue)
+# ✅ Function to fetch weather data (Fix Open-Meteo issue)
 def get_weather_data(latitude: float, longitude: float):
     try:
         api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
@@ -46,13 +46,19 @@ def get_weather_data(latitude: float, longitude: float):
         }
         response = requests.get(api_url, params=params)
         if response.status_code != 200:
-            return {"error": response.text}
+            return {"error": f"Weather API Error: {response.text}"}
 
         weather_data = response.json()
-        current_weather = weather_data.get("current", {})
 
-        if not current_weather:
-            return {"error": "Weather data unavailable"}
+        # ✅ Ensure "current" exists and is a dictionary
+        current_weather = weather_data.get("current", {})
+        if not isinstance(current_weather, dict):
+            return {"error": "Invalid 'current' weather data format"}
+
+        # ✅ Ensure "daily" exists and is a list
+        daily_weather = weather_data.get("daily", {})
+        if not isinstance(daily_weather, dict) or "temperature_2m_max" not in daily_weather:
+            return {"error": "Invalid 'daily' weather data format"}
 
         # ✅ Send correct weather data to Blynk
         send_to_blynk("V8", str(latitude))  # Latitude
@@ -63,9 +69,10 @@ def get_weather_data(latitude: float, longitude: float):
         send_to_blynk("V13", str(current_weather.get("uv_index", "N/A")))  # UV Index
         send_to_blynk("V6", f"{latitude}, {longitude}")  # Location (Formatted)
 
-        return {"weather": current_weather}
+        return {"current": current_weather, "daily": daily_weather}
     except Exception as e:
         return {"error": str(e)}
+
 
 # ✅ Function to generate AI-based recommendations
 def generate_recommendation(user_input: str):
