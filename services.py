@@ -13,13 +13,12 @@ def get_weather_data(latitude: float, longitude: float):
 
     try:
         response = requests.get(api_url, timeout=10)
-        if response.status_code != 200:
-            return {"error": f"Weather API request failed with status {response.status_code}: {response.text}"}
-        
+        response.raise_for_status()  # Raise exception for HTTP errors
         weather_data = response.json()
+
         if "current" not in weather_data:
             return {"error": "Invalid response from Weather API"}
-        
+
         return weather_data
     except requests.exceptions.RequestException as e:
         return {"error": f"Failed to fetch weather data: {str(e)}"}
@@ -30,7 +29,10 @@ def send_weather_to_blynk(auth_token: str, temperature: float, humidity: float, 
         return {"error": "Blynk authentication token is missing"}
 
     blynk_url = "https://blynk.cloud/external/api/update"
-    blynk_data = {
+    
+    # Batch update all values in a single request
+    params = {
+        "token": auth_token,
         "V11": temperature,  # Temperature
         "V12": humidity,     # Humidity
         "V10": pressure,     # Pressure
@@ -40,11 +42,8 @@ def send_weather_to_blynk(auth_token: str, temperature: float, humidity: float, 
     }
 
     try:
-        for pin, value in blynk_data.items():
-            response = requests.get(f"{blynk_url}?token={auth_token}&{pin}={value}", timeout=5)
-            if response.status_code != 200:
-                return {"error": f"Failed to send {pin} to Blynk: {response.text}"}
-        
+        response = requests.get(blynk_url, params=params, timeout=5)
+        response.raise_for_status()  # Ensure the request was successful
         return {"message": "Weather data sent to Blynk successfully"}
     except requests.exceptions.RequestException as e:
         return {"error": f"Failed to send data to Blynk: {str(e)}"}

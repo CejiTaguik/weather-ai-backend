@@ -24,10 +24,8 @@ def send_to_blynk(pin: str, value: str):
     url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
     try:
         response = requests.get(url)
-        if response.status_code == 200:
-            return response.text
-        else:
-            return {"error": f"Blynk Error: {response.text}"}
+        response.raise_for_status()
+        return response.text
     except requests.RequestException as e:
         return {"error": f"Exception: {str(e)}"}
 
@@ -43,9 +41,7 @@ def get_weather_data(latitude: float, longitude: float):
             "timezone": "auto"
         }
         response = requests.get(api_url, params=params)
-        if response.status_code != 200:
-            return {"error": f"Weather API Error: {response.text}"}
-        
+        response.raise_for_status()
         weather_data = response.json()
         
         if "current" not in weather_data or not isinstance(weather_data["current"], dict):
@@ -65,7 +61,8 @@ def get_weather_data(latitude: float, longitude: float):
             "temperature": send_to_blynk("V11", str(temperature)),
             "humidity": send_to_blynk("V12", str(humidity)),
             "uv_index": send_to_blynk("V13", str(uv_index)),
-            "location": send_to_blynk("V6", f"{latitude}, {longitude}")
+            "location": send_to_blynk("V6", f"{latitude}, {longitude}"),
+            "weather_fetch": send_to_blynk("V7", "1")  # Indicate successful fetch
         }
         
         return {"weather": weather_data, "blynk_results": blynk_results}
@@ -73,7 +70,7 @@ def get_weather_data(latitude: float, longitude: float):
         return {"error": f"Weather API request failed: {str(e)}"}
 
 # ✅ Function to generate AI-based recommendations
-def generate_recommendation(user_input: str) -> str:
+def generate_recommendation(user_input: str) -> dict:
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
@@ -100,12 +97,12 @@ def generate_recommendation(user_input: str) -> str:
         return {"error": f"AI error: {str(e)}"}
 
 # ✅ Weather Endpoint (Updates Blynk)
-@router.get("/weather")
+@router.get("/fetch_weather_api_weather_get")
 def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
     return get_weather_data(latitude, longitude)
 
 # ✅ AI Recommendation Endpoint (Sends to Terminal Widget V14 & Recommendation Widget V15)
-@router.get("/recommendation")
+@router.get("/fetch_recommendation_api_recommendation_get")
 def fetch_recommendation(query: str = Query(...)):
     return generate_recommendation(query)
 
