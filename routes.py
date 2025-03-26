@@ -70,13 +70,26 @@ def get_weather_data(latitude: float, longitude: float):
         return {"error": f"Weather API request failed: {str(e)}"}
 
 # ✅ Function to generate AI-based recommendations
-def generate_recommendation(user_input: str) -> dict:
+def generate_recommendation(query: str, latitude: float, longitude: float) -> dict:
+    # Fetch weather data
+    weather_data = get_weather_data(latitude, longitude)
+    
+    if "weather" in weather_data:
+        weather_context = (
+            f"Current temperature: {weather_data['weather']['current'].get('temperature_2m', 'N/A')}°C, "
+            f"Humidity: {weather_data['weather']['current'].get('relative_humidity_2m', 'N/A')}%, "
+            f"Pressure: {weather_data['weather']['current'].get('pressure_msl', 'N/A')} hPa, "
+            f"UV Index: {weather_data['weather']['current'].get('uv_index', 'N/A')}."
+        )
+    else:
+        weather_context = "Weather data unavailable."
+    
     try:
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are an AI assistant for weather-based recommendations."},
-                {"role": "user", "content": user_input}
+                {"role": "user", "content": f"{query}\n\nWeather Context: {weather_context}"}
             ],
             max_tokens=1500,
             temperature=0.7
@@ -101,10 +114,10 @@ def generate_recommendation(user_input: str) -> dict:
 def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
     return get_weather_data(latitude, longitude)
 
+# ✅ AI Recommendation Endpoint (Now Includes Weather Data)
 @router.get("/fetch_recommendation_api_recommendation_get")
-def fetch_recommendation(query: str = Query(...)):
-    return generate_recommendation(query)
-
+def fetch_recommendation(query: str = Query(...), latitude: float = Query(14.5995), longitude: float = Query(120.9842)):
+    return generate_recommendation(query, latitude, longitude)
 
 # ✅ Blynk Test Endpoint
 @router.get("/blynk/test")
