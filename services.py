@@ -1,47 +1,31 @@
-
 import os
 import requests
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
 
+# Load environment variables
 load_dotenv()
 
 # OpenAI Client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Blynk Configuration
-BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
-BLYNK_SERVER = "https://blynk.cloud/external/api/update"
-
-def send_to_blynk(pin: str, value: str):
-    if not BLYNK_AUTH_TOKEN:
-        return {"error": "BLYNK_AUTH_TOKEN is missing"}
-    url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
-    try:
-        response = requests.get(url)
-        return response.text if response.status_code == 200 else f"Error: {response.text}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
-
-# Open-Meteo Weather API
-WEATHER_API_URL = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
-
+# ✅ Function to fetch weather data
 def get_weather_data(latitude: float, longitude: float):
     try:
+        api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
         params = {
             "latitude": latitude,
             "longitude": longitude,
-            "current": ["temperature_2m", "relative_humidity_2m", "pressure_msl", "uv_index", "precipitation"],
+            "current": ["temperature_2m", "relative_humidity_2m", "pressure_msl", "uv_index"],
+            "daily": ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"],
             "timezone": "auto"
         }
-        response = requests.get(WEATHER_API_URL, params=params)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"error": f"Failed to fetch weather data: {response.status_code}, {response.text}"}
+        response = requests.get(api_url, params=params)
+        return response.json() if response.status_code == 200 else {"error": response.text}
     except Exception as e:
-        return {"error": f"Exception in get_weather_data: {str(e)}"}
+        return {"error": str(e)}
 
+# ✅ Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
     try:
         response = openai_client.chat.completions.create(
@@ -55,4 +39,4 @@ def generate_recommendation(user_input: str) -> str:
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"Error generating recommendation: {str(e)}"
+        return {"error": f"AI error: {str(e)}"}
