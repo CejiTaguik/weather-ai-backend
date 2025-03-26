@@ -101,10 +101,10 @@ def generate_recommendation(user_input: str) -> dict:
 def fetch_weather(latitude: float = Query(...), longitude: float = Query(...)):
     return get_weather_data(latitude, longitude)
 
-# ✅ AI Recommendation Endpoint (Sends to Terminal Widget V14 & Recommendation Widget V15)
 @router.get("/fetch_recommendation_api_recommendation_get")
 def fetch_recommendation(query: str = Query(...)):
     return generate_recommendation(query)
+
 
 # ✅ Blynk Test Endpoint
 @router.get("/blynk/test")
