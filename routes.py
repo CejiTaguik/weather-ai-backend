@@ -1,5 +1,6 @@
 import os
 import requests
+import logging
 from fastapi import APIRouter, Query
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -13,6 +14,7 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Blynk setup
 BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
 BLYNK_SERVER = "https://blynk.cloud/external/api/update"
+BLYNK_GET_SERVER = "https://blynk.cloud/external/api/get"
 
 # Create router
 router = APIRouter()
@@ -29,6 +31,23 @@ def send_to_blynk(pin: str, value: str):
     except requests.RequestException as e:
         return {"error": f"Exception: {str(e)}"}
 
+# ✅ Function to fetch data from Blynk
+@router.get("/fetch_blynk_data")
+async def fetch_blynk_data():
+    """ Fetches data from Blynk Virtual Pin V6 """
+    if not BLYNK_AUTH_TOKEN:
+        return {"error": "BLYNK_AUTH_TOKEN is missing"}
+
+    url = f"{BLYNK_GET_SERVER}?token={BLYNK_AUTH_TOKEN}&V6"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        logging.info(f"Blynk API Response: {response.text}")
+        return {"blynk_data": response.text}
+    except requests.RequestException as e:
+        logging.error(f"Error fetching Blynk data: {e}")
+        return {"error": f"Request failed: {str(e)}"}
+
 # ✅ Convert location to lat/lon
 def get_lat_lon_from_location(location: str):
     """ Converts a location name to latitude & longitude using Open-Meteo API """
@@ -36,7 +55,6 @@ def get_lat_lon_from_location(location: str):
         response = requests.get("https://geocoding-api.open-meteo.com/v1/search", params={"name": location, "count": 1})
         response.raise_for_status()
         data = response.json()
-
         if "results" in data and data["results"]:
             return data["results"][0]["latitude"], data["results"][0]["longitude"]
     except requests.RequestException:
@@ -82,42 +100,18 @@ def get_weather_data(latitude: float, longitude: float):
     except requests.RequestException as e:
         return {"error": f"Weather API request failed: {str(e)}"}
 
-# ✅ Function to generate AI-based recommendations
-def generate_recommendation(query: str, latitude: float, longitude: float) -> dict:
-    weather_data = get_weather_data(latitude, longitude)
-    
-    if "weather" in weather_data:
-        weather_context = (
-            f"Current temperature: {weather_data['weather']['current'].get('temperature_2m', 'N/A')}°C, "
-            f"Humidity: {weather_data['weather']['current'].get('relative_humidity_2m', 'N/A')}%, "
-            f"Pressure: {weather_data['weather']['current'].get('pressure_msl', 'N/A')} hPa, "
-            f"UV Index: {weather_data['weather']['current'].get('uv_index', 'N/A')}."
-        )
-    else:
-        weather_context = "Weather data unavailable."
-    
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": "You are an AI assistant for weather-based recommendations."},
-                {"role": "user", "content": f"{query}\n\nWeather Context: {weather_context}"}
-            ],
-            max_tokens=1500,
-            temperature=0.7
-        )
-        ai_response = response.choices[0].message.content.strip()
-        trimmed_response = ai_response[:255]  # ✅ Trim AI response to fit Blynk character limits
+# ✅ AI Recommendation Endpoint
+@router.get("/recommendation")
+def fetch_recommendation(query: str = Query(...), location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
+    if location:
+        latitude, longitude = get_lat_lon_from_location(location)
+        if latitude is None or longitude is None:
+            return {"error": "Invalid location"}
 
-        # ✅ Send AI response to Blynk
-        blynk_results = {
-            "terminal": send_to_blynk("V14", trimmed_response),
-            "recommendation": send_to_blynk("V15", trimmed_response)
-        }
+    if latitude is None or longitude is None:
+        return {"error": "Latitude and longitude are required"}
 
-        return {"recommendation": trimmed_response, "blynk_results": blynk_results}
-    except Exception as e:
-        return {"error": f"AI error: {str(e)}"}
+    return generate_recommendation(query, latitude, longitude)
 
 # ✅ Weather Endpoint (Supports Both Lat/Lon & Location Name)
 @router.get("/weather")
@@ -131,19 +125,6 @@ def fetch_weather(location: str = Query(None), latitude: float = Query(None), lo
         return {"error": "Latitude and longitude are required"}
 
     return get_weather_data(latitude, longitude)
-
-# ✅ AI Recommendation Endpoint
-@router.get("/recommendation")
-def fetch_recommendation(query: str = Query(...), location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
-    if location:
-        latitude, longitude = get_lat_lon_from_location(location)
-        if latitude is None or longitude is None:
-            return {"error": "Invalid location"}
-
-    if latitude is None or longitude is None:
-        return {"error": "Latitude and longitude are required"}
-
-    return generate_recommendation(query, latitude, longitude)
 
 # ✅ Blynk Test Endpoint
 @router.get("/blynk/test")
