@@ -24,14 +24,17 @@ def send_to_blynk(pin: str, value: str):
     url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
     try:
         response = requests.get(url)
-        return response.text if response.status_code == 200 else f"Error: {response.text}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
+        if response.status_code == 200:
+            return response.text
+        else:
+            return {"error": f"Blynk Error: {response.text}"}
+    except requests.RequestException as e:
+        return {"error": f"Exception: {str(e)}"}
 
 # ✅ Function to fetch weather data (Updates Blynk)
 def get_weather_data(latitude: float, longitude: float):
     try:
-        api_url = os.getenv("OPEN_METEO_API", "https://api.open-meteo.com/v1/forecast")
+        api_url = "https://api.open-meteo.com/v1/forecast"
         params = {
             "latitude": latitude,
             "longitude": longitude,
@@ -55,17 +58,19 @@ def get_weather_data(latitude: float, longitude: float):
         uv_index = weather_data["current"].get("uv_index", "N/A")
         
         # ✅ Send data to Blynk with correct Virtual Pins
-        send_to_blynk("V8", str(latitude))  # Latitude
-        send_to_blynk("V9", str(longitude))  # Longitude
-        send_to_blynk("V10", str(pressure))  # Pressure
-        send_to_blynk("V11", str(temperature))  # Temperature
-        send_to_blynk("V12", str(humidity))  # Humidity
-        send_to_blynk("V13", str(uv_index))  # UV Index
-        send_to_blynk("V6", f"{latitude}, {longitude}")  # Location (Formatted)
+        blynk_results = {
+            "latitude": send_to_blynk("V8", str(latitude)),
+            "longitude": send_to_blynk("V9", str(longitude)),
+            "pressure": send_to_blynk("V10", str(pressure)),
+            "temperature": send_to_blynk("V11", str(temperature)),
+            "humidity": send_to_blynk("V12", str(humidity)),
+            "uv_index": send_to_blynk("V13", str(uv_index)),
+            "location": send_to_blynk("V6", f"{latitude}, {longitude}")
+        }
         
-        return weather_data
-    except Exception as e:
-        return {"error": str(e)}
+        return {"weather": weather_data, "blynk_results": blynk_results}
+    except requests.RequestException as e:
+        return {"error": f"Weather API request failed: {str(e)}"}
 
 # ✅ Function to generate AI-based recommendations
 def generate_recommendation(user_input: str) -> str:
@@ -85,10 +90,12 @@ def generate_recommendation(user_input: str) -> str:
         trimmed_response = ai_response[:255]
         
         # ✅ Send AI response to Blynk Terminal (V14) and Recommendation Widget (V15)
-        send_to_blynk("V14", trimmed_response)  # AI Response for Terminal
-        send_to_blynk("V15", trimmed_response)  # AI Recommendation
+        blynk_results = {
+            "terminal": send_to_blynk("V14", trimmed_response),
+            "recommendation": send_to_blynk("V15", trimmed_response)
+        }
         
-        return {"recommendation": trimmed_response}
+        return {"recommendation": trimmed_response, "blynk_results": blynk_results}
     except Exception as e:
         return {"error": f"AI error: {str(e)}"}
 
