@@ -1,18 +1,12 @@
-
 from fastapi import FastAPI
-from routes import router
-from dotenv import load_dotenv
-import os
+from router import router  # Import merged router
 
-# Load environment variables
-load_dotenv()
-
-# Initialize FastAPI app
 app = FastAPI(title="Weather AI Backend")
 
-# Include API routes
-app.include_router(router)
+# ✅ Include the unified API router
+app.include_router(router, prefix="/api")
 
+# ✅ Root endpoint (Check if FastAPI is running)
 @app.get("/")
 def home():
     return {"message": "Weather AI Backend is running!"}
