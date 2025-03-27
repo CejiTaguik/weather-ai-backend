@@ -1,33 +1,27 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import router
+from routes import router  # Import the API routes
 
-# Initialize FastAPI app with metadata
+# Initialize FastAPI app
 app = FastAPI(
     title="Blynk Weather Monitoring API",
     description="FastAPI service for fetching weather data, sending AI-based recommendations, and interacting with Blynk.",
     version="1.0.0"
 )
 
-# ✅ Add CORS Middleware (Required for frontend or external API calls)
+# ✅ CORS Middleware (Allows external access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for better security
+    allow_origins=["*"],  # Change this for security in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API router
+# ✅ Include API Routes from `routes.py`
 app.include_router(router)
 
+# ✅ Root endpoint for testing if the API is running
 @app.get("/")
 def read_root():
     return {"message": "FastAPI is running!"}
-
-# ✅ Fix: Require lat and lon as query parameters
-@app.get("/weather")
-def get_weather(lat: float = Query(..., description="Latitude is required"), 
-                lon: float = Query(..., description="Longitude is required")):
-    print(f"Received lat: {lat}, lon: {lon}")  # Debugging log
-    return {"latitude": lat, "longitude": lon}
