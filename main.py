@@ -25,10 +25,9 @@ app.include_router(router)
 def read_root():
     return {"message": "FastAPI is running!"}
 
-# ✅ Debugging: Ensure latitude and longitude are correctly received
+# ✅ Fix: Require lat and lon as query parameters
 @app.get("/weather")
-def get_weather(lat: float = Query(None), lon: float = Query(None)):
+def get_weather(lat: float = Query(..., description="Latitude is required"), 
+                lon: float = Query(..., description="Longitude is required")):
     print(f"Received lat: {lat}, lon: {lon}")  # Debugging log
-    if lat is None or lon is None:
-        return {"detail": "Latitude and longitude are required"}
     return {"latitude": lat, "longitude": lon}
