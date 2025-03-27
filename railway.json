@@ -3,7 +3,10 @@
       "dockerfile": "Dockerfile"
     },
     "deploy": {
-      "serviceType": "web"
+      "serviceType": "web",
+      "env": {
+        "PORT": "10000"
+      }
     }
   }
   
