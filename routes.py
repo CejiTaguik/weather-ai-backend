@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Query
 import os
 from openai import OpenAI
-from utils import get_weather_data, send_to_blynk, get_lat_lon_from_location
+from .utils import get_weather_data, send_to_blynk, get_lat_lon_from_location
 
 router = APIRouter()
 
 # ✅ Weather API Fetch Route
 @router.get("/weather")
 def fetch_weather(
-    location: str = Query(..., description="Location name"),
+    location: str = Query(None, description="Location name"),
     latitude: float = Query(None, description="Latitude"),
     longitude: float = Query(None, description="Longitude")
 ):
