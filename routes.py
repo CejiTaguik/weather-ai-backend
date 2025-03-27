@@ -111,7 +111,6 @@ def generate_recommendation(query: str, latitude: float, longitude: float) -> di
 
         # ✅ Send AI response to Blynk
         blynk_results = {
-            "terminal": send_to_blynk("V14", trimmed_response),
             "recommendation": send_to_blynk("V15", trimmed_response)
         }
 
@@ -120,8 +119,7 @@ def generate_recommendation(query: str, latitude: float, longitude: float) -> di
         return {"error": f"AI error: {str(e)}"}
 
 # ✅ Weather Endpoint (Supports Both Lat/Lon & Location Name)
-@router.get("/weather")
-@router.post("/weather")  # ✅ Allow POST requests
+@router.post("/weather")
 def fetch_weather(location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
@@ -134,8 +132,7 @@ def fetch_weather(location: str = Query(None), latitude: float = Query(None), lo
     return get_weather_data(latitude, longitude)
 
 # ✅ AI Recommendation Endpoint
-@router.get("/recommendation")
-@router.post("/recommendation")  # ✅ Allow POST requests
+@router.post("/recommendation")
 def fetch_recommendation(query: str = Query(...), location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
