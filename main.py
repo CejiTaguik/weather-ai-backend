@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from routes import router  # Import the API routes
 
@@ -25,3 +25,4 @@ app.include_router(router)
 @app.get("/")
 def read_root():
     return {"message": "FastAPI is running!"}
+
