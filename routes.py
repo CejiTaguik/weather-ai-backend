@@ -121,6 +121,7 @@ def generate_recommendation(query: str, latitude: float, longitude: float) -> di
 
 # ✅ Weather Endpoint (Supports Both Lat/Lon & Location Name)
 @router.get("/weather")
+@router.post("/weather")  # ✅ Allow POST requests
 def fetch_weather(location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
@@ -134,6 +135,7 @@ def fetch_weather(location: str = Query(None), latitude: float = Query(None), lo
 
 # ✅ AI Recommendation Endpoint
 @router.get("/recommendation")
+@router.post("/recommendation")  # ✅ Allow POST requests
 def fetch_recommendation(query: str = Query(...), location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
@@ -144,15 +146,3 @@ def fetch_recommendation(query: str = Query(...), location: str = Query(None), l
         return {"error": "Latitude and longitude are required"}
 
     return generate_recommendation(query, latitude, longitude)
-
-# ✅ Blynk Test Endpoint
-@router.get("/blynk/test")
-def test_blynk():
-    response = send_to_blynk("V14", "Hello from FastAPI")
-    return {"blynk_response": response}
-
-# ✅ Send Custom Data to Blynk
-@router.get("/blynk/send")
-def send_blynk_data(pin: str = Query(...), value: str = Query(...)):
-    response = send_to_blynk(pin, value)
-    return {"blynk_response": response}
