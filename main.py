@@ -1,28 +1,23 @@
-from fastapi import FastAPI, Query
+import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import router  # Import the API routes
+from routes import router
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Blynk Weather Monitoring API",
-    description="FastAPI service for fetching weather data, sending AI-based recommendations, and interacting with Blynk.",
-    version="1.0.0"
-)
+app = FastAPI()
 
-# ✅ CORS Middleware (Allows external access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change this for security in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Include API Routes from `routes.py`
 app.include_router(router)
 
-# ✅ Root endpoint for testing if the API is running
 @app.get("/")
-def read_root():
+def root():
     return {"message": "FastAPI is running!"}
 
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=10000)
