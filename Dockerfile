@@ -17,8 +17,8 @@ RUN pip install --upgrade pip && \
 # Copy the rest of the project files
 COPY . .
 
-# Expose FastAPI port
+# Expose FastAPI port (default to 10000 for local testing)
 EXPOSE 10000
 
-# Run FastAPI with Uvicorn (optimized with workers)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000", "--workers", "2"]
+# Run FastAPI with Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
