@@ -1,6 +1,6 @@
 import os
 import requests
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Body
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -122,9 +122,13 @@ def generate_recommendation(query: str, latitude: float, longitude: float):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
 
-# ✅ Weather Endpoint
-@router.get("/weather")
-def fetch_weather(location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
+# ✅ Weather Endpoint (Now uses JSON body)
+@router.post("/weather")
+def fetch_weather(
+    location: str = Body(None),
+    latitude: float = Body(None),
+    longitude: float = Body(None)
+):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
 
@@ -133,9 +137,14 @@ def fetch_weather(location: str = Query(None), latitude: float = Query(None), lo
 
     return get_weather_data(latitude, longitude)
 
-# ✅ AI Recommendation Endpoint
-@router.get("/recommendation")
-def fetch_recommendation(query: str, location: str = Query(None), latitude: float = Query(None), longitude: float = Query(None)):
+# ✅ AI Recommendation Endpoint (Changed to POST)
+@router.post("/recommendation")
+def fetch_recommendation(
+    query: str = Body(...),
+    location: str = Body(None),
+    latitude: float = Body(None),
+    longitude: float = Body(None)
+):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
 
