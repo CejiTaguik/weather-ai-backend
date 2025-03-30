@@ -1,15 +1,11 @@
 import os
 import requests
-import logging
 from fastapi import APIRouter, Query, HTTPException, Body
 from dotenv import load_dotenv
 from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
-
-# Setup logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Blynk setup
 BLYNK_AUTH_TOKEN = os.getenv("BLYNK_AUTH_TOKEN")
@@ -25,52 +21,38 @@ if not OPENAI_API_KEY:
 router = APIRouter()
 
 def send_to_blynk(pin: str, value: str):
-    """Send data to Blynk cloud."""
     if not BLYNK_AUTH_TOKEN:
-        logging.error("BLYNK_AUTH_TOKEN is missing!")
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
     url = f"{BLYNK_SERVER}?token={BLYNK_AUTH_TOKEN}&{pin}={value}"
-    logging.debug(f"Sending request to Blynk: {url}")  # Log request URL
-    
     try:
         response = requests.get(url)
         response.raise_for_status()
-        logging.debug(f"Blynk API Response: {response.text}")  # Log response
         return response.text
     except requests.RequestException as e:
-        logging.error(f"Blynk API Error: {str(e)}")  # Log error
         return f"Error: {str(e)}"
 
 def trigger_blynk_event(event_code: str):
-    """Trigger a Blynk event notification."""
     url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}"
-    logging.debug(f"Triggering Blynk event: {url}")
-    
     try:
         response = requests.get(url)
         response.raise_for_status()
-        logging.debug(f"Blynk Event Response: {response.text}")
         return response.text
     except requests.RequestException as e:
-        logging.error(f"Blynk Event Error: {str(e)}")
         return f"Error: {str(e)}"
 
 def get_lat_lon_from_location(location: str):
-    """Convert a location name to latitude and longitude."""
     try:
         response = requests.get("https://geocoding-api.open-meteo.com/v1/search", params={"name": location, "count": 1})
         response.raise_for_status()
         data = response.json()
         if "results" in data and data["results"]:
             return data["results"][0]["latitude"], data["results"][0]["longitude"]
-    except requests.RequestException as e:
-        logging.error(f"Geocoding API Error: {str(e)}")
+    except requests.RequestException:
         pass
     raise HTTPException(status_code=400, detail="Invalid location")
 
 def get_weather_data(latitude: float, longitude: float):
-    """Fetch weather data from Open-Meteo and send it to Blynk."""
     try:
         api_url = "https://api.open-meteo.com/v1/forecast"
         params = {
@@ -112,15 +94,39 @@ def get_weather_data(latitude: float, longitude: float):
 
         return {"weather": weather_data, "blynk_results": blynk_results}
     except requests.RequestException as e:
-        logging.error(f"Weather API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Weather API request failed: {str(e)}")
 
 def generate_ai_advisory(temperature, humidity, uv_index):
-    """Generate an AI-powered advisory message based on weather conditions."""
     client = OpenAI(api_key=OPENAI_API_KEY)
-    response = client.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "system", "content": f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. What precautions should farmers take?"}],
+        messages=[
+            {"role": "system", "content": "You are an AI assistant providing weather advisories for farmers."},
+            {"role": "user", "content": f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. What precautions should farmers take?"}
+        ],
         max_tokens=100
     )
-    return response.choices[0].message["content"].strip()
+    return response.choices[0].message.content.strip()
+
+@router.post("/weather")
+def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
+    if location:
+        latitude, longitude = get_lat_lon_from_location(location)
+    if latitude is None or longitude is None:
+        raise HTTPException(status_code=400, detail="Latitude and longitude are required")
+    return get_weather_data(latitude, longitude)
+
+@router.get("/schedule_notification")
+def schedule_notification():
+    advisory = generate_ai_advisory(30, 80, 5)
+    send_to_blynk("V15", advisory)
+    trigger_blynk_event("ai_weather_alert")
+    return {"message": "Scheduled AI advisory sent"}
+
+@router.get("/blynk/test")
+def test_blynk():
+    return {"blynk_response": send_to_blynk("V14", "Hello from FastAPI")}
+
+@router.get("/blynk/send")
+def send_blynk_data(pin: str, value: str):
+    return {"blynk_response": send_to_blynk(pin, value)}
