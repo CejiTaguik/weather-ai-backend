@@ -3,6 +3,9 @@ import requests
 from fastapi import APIRouter, Query, HTTPException, Body
 from dotenv import load_dotenv
 from openai import OpenAI
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
+import pytz
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +19,9 @@ BLYNK_EVENT_URL = "https://blynk.cloud/external/api/logEvent"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY is missing. Please set it in your environment.")
+
+# Philippine Timezone
+PH_TIMEZONE = pytz.timezone("Asia/Manila")
 
 # Create router
 router = APIRouter()
@@ -88,7 +94,7 @@ def get_weather_data(latitude: float, longitude: float):
         if isinstance(temperature, (int, float)) and temperature > 35 or \
            isinstance(humidity, (int, float)) and humidity > 90 or \
            isinstance(uv_index, (int, float)) and uv_index > 8:
-            ai_message = generate_ai_advisory(temperature, humidity, uv_index)
+            ai_message, short_message = generate_ai_advisory(temperature, humidity, uv_index)
             send_to_blynk("V15", ai_message)
             trigger_blynk_event("ai_weather_alert")
 
@@ -99,9 +105,27 @@ def get_weather_data(latitude: float, longitude: float):
 def generate_ai_advisory(temperature, humidity, uv_index):
     client = OpenAI(api_key=OPENAI_API_KEY)
     prompt = (f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. "
-              "What precautions should farmers take?")
-    response = client.completions.create(model="gpt-4", prompt=prompt, max_tokens=100)
-    return response.choices[0].text.strip()
+              "Provide a detailed advisory for farmers, including precautions, best practices, and educational insights.")
+    response = client.completions.create(model="gpt-4", prompt=prompt, max_tokens=250)
+    full_advisory = response.choices[0].text.strip()
+
+    short_prompt = f"Summarize this advisory in one short sentence: {full_advisory}"
+    short_response = client.completions.create(model="gpt-4", prompt=short_prompt, max_tokens=50)
+    short_advisory = short_response.choices[0].text.strip()
+    
+    return full_advisory, short_advisory
+
+def schedule_ai_notifications():
+    now = datetime.now(PH_TIMEZONE)
+    if now.hour in [3, 15]:
+        advisory, short_advisory = generate_ai_advisory(30, 80, 5)
+        send_to_blynk("V15", advisory)
+        trigger_blynk_event("ai_weather_alert")
+
+# Scheduler setup
+scheduler = BackgroundScheduler()
+scheduler.add_job(schedule_ai_notifications, "interval", minutes=1)
+scheduler.start()
 
 @router.post("/weather")
 def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
@@ -110,13 +134,6 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
     if latitude is None or longitude is None:
         raise HTTPException(status_code=400, detail="Latitude and longitude are required")
     return get_weather_data(latitude, longitude)
-
-@router.get("/schedule_notification")
-def schedule_notification():
-    advisory = generate_ai_advisory(30, 80, 5)
-    send_to_blynk("V15", advisory)
-    trigger_blynk_event("ai_weather_alert")
-    return {"message": "Scheduled AI advisory sent"}
 
 @router.get("/blynk/test")
 def test_blynk():
