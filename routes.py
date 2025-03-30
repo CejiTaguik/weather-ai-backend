@@ -118,7 +118,9 @@ def get_weather_data(latitude: float, longitude: float):
 def generate_ai_advisory(temperature, humidity, uv_index):
     """Generate an AI-powered advisory message based on weather conditions."""
     client = OpenAI(api_key=OPENAI_API_KEY)
-    prompt = (f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. "
-              "What precautions should farmers take?")
-    response = client.completions.create(model="gpt-4-turbo", prompt=prompt, max_tokens=100)
-    return response.choices[0].text.strip()
+    response = client.completions.create(
+        model="gpt-4",
+        messages=[{"role": "system", "content": f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. What precautions should farmers take?"}],
+        max_tokens=100
+    )
+    return response.choices[0].message["content"].strip()
