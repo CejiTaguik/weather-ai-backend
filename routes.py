@@ -120,36 +120,5 @@ def generate_ai_advisory(temperature, humidity, uv_index):
     client = OpenAI(api_key=OPENAI_API_KEY)
     prompt = (f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. "
               "What precautions should farmers take?")
-    response = client.completions.create(model="gpt-4", prompt=prompt, max_tokens=100)
+    response = client.completions.create(model="gpt-4-turbo", prompt=prompt, max_tokens=100)
     return response.choices[0].text.strip()
-
-@router.post("/weather")
-def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
-    """API route to fetch weather based on location or coordinates."""
-    if location:
-        latitude, longitude = get_lat_lon_from_location(location)
-    if latitude is None or longitude is None:
-        raise HTTPException(status_code=400, detail="Latitude and longitude are required")
-    return get_weather_data(latitude, longitude)
-
-@router.get("/schedule_notification")
-def schedule_notification():
-    """Send an AI advisory notification."""
-    advisory = generate_ai_advisory(30, 80, 5)
-    send_to_blynk("V15", advisory)
-    trigger_blynk_event("ai_weather_alert")
-    return {"message": "Scheduled AI advisory sent"}
-
-@router.get("/blynk/test")
-def test_blynk():
-    """Test route to check Blynk connectivity."""
-    response = send_to_blynk("V14", "Hello from FastAPI")
-    logging.debug(f"Blynk Test Response: {response}")
-    return {"blynk_response": response}
-
-@router.get("/blynk/send")
-def send_blynk_data(pin: str, value: str):
-    """API route to send data to a Blynk virtual pin."""
-    response = send_to_blynk(pin, value)
-    logging.debug(f"Blynk Send Response: {response}")
-    return {"blynk_response": response}
