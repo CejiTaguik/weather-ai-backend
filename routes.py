@@ -1,6 +1,6 @@
 import os
 import requests
-from fastapi import APIRouter, Query, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -36,7 +36,7 @@ def trigger_blynk_event(event_code: str, description: str = "Weather alert trigg
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
+    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
     
     try:
         response = requests.get(url)
@@ -93,6 +93,11 @@ def get_weather_data(latitude: float, longitude: float):
         send_to_blynk("V15", ai_message)
         trigger_blynk_event("ai_weather_alert", ai_message)
 
+        # Trigger Push Notification (Customizable for your platform)
+        # Assuming Blynk server handles notifications, you can customize this part as needed.
+        # Trigger Blynk push notification (simulating a 'Critical' type of notification)
+        trigger_blynk_event("critical_weather_alert", "AI recommendation sent to terminal.")
+
         return {"weather": weather_data, "blynk_results": blynk_results}
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Weather API request failed: {str(e)}")
@@ -102,10 +107,10 @@ def generate_ai_advisory(temperature, humidity, uv_index):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
+            {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Provide clear and practical farming tips."},
             {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
         ],
-        max_tokens=150
+        max_tokens=300  # Ensure full response
     )
     return response.choices[0].message.content.strip()
 
@@ -130,19 +135,14 @@ def test_blynk():
 
 @router.get("/blynk/send")
 def send_blynk_data(pin: str, value: str):
-    return {"blynk_response": send_to_blynk(pin, value)}
+    response = send_to_blynk(pin, value)
+    if not response:
+        raise HTTPException(status_code=500, detail="Failed to send data to Blynk.")
+    return {"blynk_response": response}
 
-@router.post("/blynk/ai_chat")
-def ai_chat(user_input: str = Body(..., embed=True)):
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are an AI assistant answering farming-related weather questions."},
-            {"role": "user", "content": user_input}
-        ],
-        max_tokens=150
-    )
-    ai_response = response.choices[0].message.content.strip()
-    send_to_blynk("V14", ai_response)  # Display AI response in Terminal widget
-    return {"ai_response": ai_response}
+@router.get("/blynk/ai_chat")
+def ai_chat_request(chat_message: str):
+    # Simulating AI chat request with the terminal widget
+    ai_response = generate_ai_advisory(30, 60, 3)  # Example values for testing
+    send_to_blynk("V14", ai_response)  # Sending AI response to the Blynk Terminal Widget
+    return {"message": "AI recommendation sent to terminal", "response": ai_response}
