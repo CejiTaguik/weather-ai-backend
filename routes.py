@@ -36,10 +36,11 @@ def trigger_blynk_event(event_code: str, description: str = "Weather alert trigg
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
-    
+    # Correctly format the URL
+    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING"
+
     try:
-        response = requests.get(url)
+        response = requests.get(url)  # Use GET instead of POST
         response.raise_for_status()
         return {"message": "Blynk event triggered successfully"}
     except requests.RequestException as e:
@@ -89,9 +90,12 @@ def get_weather_data(latitude: float, longitude: float):
             "weather_fetch": send_to_blynk("V7", "1")
         }
 
-        ai_message = generate_ai_advisory(temperature, humidity, uv_index)
-        send_to_blynk("V15", ai_message)
-        trigger_blynk_event("ai_weather_alert", ai_message)
+        if (isinstance(temperature, (int, float)) and temperature > 35) or \
+           (isinstance(humidity, (int, float)) and humidity > 90) or \
+           (isinstance(uv_index, (int, float)) and uv_index > 8):
+            ai_message = generate_ai_advisory(temperature, humidity, uv_index)
+            send_to_blynk("V15", ai_message)
+            trigger_blynk_event("ai_weather_alert")
 
         return {"weather": weather_data, "blynk_results": blynk_results}
     except requests.RequestException as e:
@@ -102,10 +106,10 @@ def generate_ai_advisory(temperature, humidity, uv_index):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
-            {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
+            {"role": "system", "content": "You are an AI assistant providing weather advisories for farmers."},
+            {"role": "user", "content": f"Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}. What precautions should farmers take?"}
         ],
-        max_tokens=150
+        max_tokens=100
     )
     return response.choices[0].message.content.strip()
 
@@ -121,7 +125,7 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
 def schedule_notification():
     advisory = generate_ai_advisory(30, 80, 5)
     send_to_blynk("V15", advisory)
-    trigger_blynk_event("ai_weather_alert", advisory)
+    trigger_blynk_event("ai_weather_alert")
     return {"message": "Scheduled AI advisory sent"}
 
 @router.get("/blynk/test")
