@@ -36,7 +36,7 @@ def trigger_blynk_event(event_code: str, description: str = "Weather alert trigg
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
+    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
     
     try:
         response = requests.get(url)
@@ -98,14 +98,15 @@ def get_weather_data(latitude: float, longitude: float):
         raise HTTPException(status_code=500, detail=f"Weather API request failed: {str(e)}")
 
 def generate_ai_advisory(temperature, humidity, uv_index):
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    client = OpenAI()
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
             {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
         ],
-        max_tokens=150
+        max_tokens=150,
+        api_key=OPENAI_API_KEY  # Fix: Pass API key here
     )
     return response.choices[0].message.content.strip()
 
