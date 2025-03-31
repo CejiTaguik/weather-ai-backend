@@ -33,14 +33,20 @@ def send_to_blynk(pin: str, value: str):
         return f"Error: {str(e)}"
 
 def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
-    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}"
+    url = BLYNK_EVENT_URL
+    payload = {
+        "token": BLYNK_AUTH_TOKEN,
+        "event": event_code,
+        "description": description
+    }
+    headers = {"Content-Type": "application/json"}
+    
     try:
-        response = requests.get(url)
+        response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
-        return response.text
+        return response.json()
     except requests.RequestException as e:
-        return f"Error: {str(e)}"
-
+        raise HTTPException(status_code=500, detail=f"Blynk Event API Error: {str(e)}")
 
 def get_lat_lon_from_location(location: str):
     try:
