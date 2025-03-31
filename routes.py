@@ -32,7 +32,7 @@ def send_to_blynk(pin: str, value: str):
     except requests.RequestException as e:
         return f"Error: {str(e)}"
 
-def trigger_blynk_event(event_code: str, description: str = "AI Weather Alert"):
+def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
     url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}"
     try:
         response = requests.get(url)
@@ -40,6 +40,7 @@ def trigger_blynk_event(event_code: str, description: str = "AI Weather Alert"):
         return response.text
     except requests.RequestException as e:
         return f"Error: {str(e)}"
+
 
 def get_lat_lon_from_location(location: str):
     try:
