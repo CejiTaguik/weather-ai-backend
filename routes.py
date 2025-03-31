@@ -33,11 +33,15 @@ def send_to_blynk(pin: str, value: str):
         return f"Error: {str(e)}"
 
 def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
+    if not BLYNK_AUTH_TOKEN:
+        raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
+    
     url = BLYNK_EVENT_URL
     payload = {
         "token": BLYNK_AUTH_TOKEN,
         "event": event_code,
-        "description": description
+        "description": description,
+        "priority": "HIGH"  # Fixed missing priority field
     }
     headers = {"Content-Type": "application/json"}
     
