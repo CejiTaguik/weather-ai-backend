@@ -32,7 +32,7 @@ def send_to_blynk(pin: str, value: str):
     except requests.RequestException as e:
         return f"Error: {str(e)}"
 
-def trigger_blynk_event(event_code: str):
+def trigger_blynk_event(event_code: str, description: str = "AI Weather Alert"):
     url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}"
     try:
         response = requests.get(url)
