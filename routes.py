@@ -34,18 +34,18 @@ def send_to_blynk(pin: str, value: str):
         return f"Error: {str(e)}"
 
 def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
+    """Trigger Blynk push notification"""
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}&priority=CRITICAL"
+    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}&priority=CRITICAL"
 
     try:
         response = requests.get(url)
         response.raise_for_status()
         return {"message": "Blynk event triggered successfully"}
     except requests.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Blynk Event API Error: {str(e)}")
-
+        return f"Error: {str(e)}"
 
 def get_lat_lon_from_location(location: str):
     """Convert location name to latitude & longitude"""
@@ -114,7 +114,7 @@ def generate_ai_advisory(temperature, humidity, uv_index):
             {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Provide clear and practical farming tips."},
             {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
         ],
-        max_tokens=300  # Ensure full response
+        max_tokens=300
     )
     return response.choices[0].message.content.strip()
 
@@ -133,10 +133,19 @@ def schedule_notification():
     try:
         # Fetch latest weather data for AI recommendation
         advisory = generate_ai_advisory(30, 80, 5)  # Example values
-        send_to_blynk("V15", advisory)  # Send AI response to AI Recommendation Display
-        trigger_blynk_event("ai_weather_alert", advisory)  # Trigger push notification
+
+        # Send AI response to AI Recommendation Display (V15)
+        blynk_response = send_to_blynk("V15", advisory)
+        if "Error" in blynk_response:
+            raise HTTPException(status_code=500, detail=f"Failed to send AI recommendation: {blynk_response}")
+
+        # Trigger Blynk push notification event
+        event_response = trigger_blynk_event("ai_weather_alert", advisory)
+        if "Error" in event_response:
+            raise HTTPException(status_code=500, detail=f"Failed to trigger push notification: {event_response}")
 
         return {"message": "Scheduled AI advisory sent", "recommendation": advisory}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating recommendation: {str(e)}")
 
@@ -149,7 +158,7 @@ def test_blynk():
 def send_blynk_data(pin: str, value: str):
     """Manually send data to a Blynk virtual pin"""
     response = send_to_blynk(pin, value)
-    if not response:
+    if "Error" in response:
         raise HTTPException(status_code=500, detail="Failed to send data to Blynk.")
     return {"blynk_response": response}
 
