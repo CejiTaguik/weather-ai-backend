@@ -36,17 +36,10 @@ def trigger_blynk_event(event_code: str, description: str = "Weather alert trigg
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = BLYNK_EVENT_URL
-    payload = {
-        "token": BLYNK_AUTH_TOKEN,
-        "event": event_code,
-        "description": description,
-        "priority": "HIGH"  # Fixed missing priority field
-    }
-    headers = {"Content-Type": "application/json"}
+    url = f"https://blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}&priority=HIGH"
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.get(url)  # Use GET instead of POST
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
