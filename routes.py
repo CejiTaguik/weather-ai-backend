@@ -34,18 +34,18 @@ def send_to_blynk(pin: str, value: str):
         return f"Error: {str(e)}"
 
 def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
-    """Trigger Blynk event for push notifications"""
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
-    
+    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&description={description}&priority=CRITICAL"
+
     try:
         response = requests.get(url)
         response.raise_for_status()
         return {"message": "Blynk event triggered successfully"}
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Blynk Event API Error: {str(e)}")
+
 
 def get_lat_lon_from_location(location: str):
     """Convert location name to latitude & longitude"""
