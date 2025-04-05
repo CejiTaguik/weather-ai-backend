@@ -92,8 +92,10 @@ def get_weather_data(latitude: float, longitude: float):
             "weather_fetch": send_to_blynk("V7", "1")
         }
 
+        # Trigger AI recommendation on V7 (terminal widget)
         ai_message = generate_ai_advisory(temperature, humidity, uv_index)
-        send_to_blynk("V15", ai_message)
+        send_to_blynk("V7", ai_message)  # Send AI recommendation to terminal widget (V7)
+        send_to_blynk("V15", ai_message)  # Send AI message to V15 for display
         trigger_blynk_event("ai_weather_alert", ai_message)
 
         return {"weather": weather_data, "blynk_results": blynk_results}
@@ -104,7 +106,7 @@ def generate_ai_advisory(temperature, humidity, uv_index):
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4",
-        messages=[
+        messages=[ 
             {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
             {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
         ],
@@ -112,18 +114,12 @@ def generate_ai_advisory(temperature, humidity, uv_index):
     )
     return response.choices[0].message.content.strip()
 
-@router.post("/weather")
-def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
-    if location:
-        latitude, longitude = get_lat_lon_from_location(location)
-    if latitude is None or longitude is None:
-        raise HTTPException(status_code=400, detail="Latitude and longitude are required")
-    return get_weather_data(latitude, longitude)
-
+# Modify the scheduled notifications to run at 3 AM and 6 PM
 @router.get("/schedule_notification")
 def schedule_notification():
-    # Scheduling the AI advisory notification at 3 AM
+    # Scheduling the AI advisory notification at 3 AM and 6 PM
     schedule.every().day.at("03:00").do(send_scheduled_advisory)
+    schedule.every().day.at("18:00").do(send_scheduled_advisory)
     
     # Starting a background thread to run the schedule
     def run_schedule():
@@ -134,13 +130,26 @@ def schedule_notification():
     # Start the background thread
     threading.Thread(target=run_schedule, daemon=True).start()
     
-    return {"message": "Scheduled AI advisory notifications will now be sent daily at 3 AM."}
+    return {"message": "Scheduled AI advisory notifications will now be sent daily at 3 AM and 6 PM."}
 
 def send_scheduled_advisory():
     advisory = generate_ai_advisory(30, 80, 5)
     send_to_blynk("V15", advisory)
     trigger_blynk_event("ai_weather_alert", advisory)
     print(f"Scheduled advisory sent: {advisory}")
+
+# Modify the fetch_weather route to accept location input and dynamically update Blynk V6
+@router.post("/weather")
+def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
+    if location:
+        latitude, longitude = get_lat_lon_from_location(location)
+        # Send the location to Blynk V6 (location will reflect here)
+        send_to_blynk("V6", location)
+    
+    if latitude is None or longitude is None:
+        raise HTTPException(status_code=400, detail="Latitude and longitude are required")
+    
+    return get_weather_data(latitude, longitude)
 
 @router.get("/blynk/test")
 def test_blynk():
