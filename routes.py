@@ -1,9 +1,8 @@
-
 import os
 import requests
 from fastapi import APIRouter, Query, HTTPException, Body
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 
 # Load environment variables
 load_dotenv()
@@ -31,13 +30,17 @@ def send_to_blynk(pin: str, value: str):
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
-        return f"Error: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"Blynk API Error: {str(e)}")
 
 def trigger_blynk_event(event_code: str, description: str = "Weather alert triggered"):
     if not BLYNK_AUTH_TOKEN:
         raise HTTPException(status_code=500, detail="BLYNK_AUTH_TOKEN is missing")
     
-    url = f"https://sgp1.blynk.cloud/external/api/logEvent?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description}"
+    # URL encode the description for safety
+    from urllib.parse import quote_plus
+    description_encoded = quote_plus(description)
+
+    url = f"{BLYNK_EVENT_URL}?token={BLYNK_AUTH_TOKEN}&event={event_code}&priority=WARNING&description={description_encoded}"
     
     try:
         response = requests.get(url)
@@ -79,6 +82,7 @@ def get_weather_data(latitude: float, longitude: float):
         pressure = weather_data["current"].get("pressure_msl", "N/A")
         uv_index = weather_data["current"].get("uv_index", "N/A")
 
+        # Send sensor data to Blynk
         blynk_results = {
             "latitude": send_to_blynk("V8", str(latitude)),
             "longitude": send_to_blynk("V9", str(longitude)),
@@ -90,6 +94,7 @@ def get_weather_data(latitude: float, longitude: float):
             "weather_fetch": send_to_blynk("V7", "1")
         }
 
+        # Generate AI advisory and send it to Blynk
         ai_message = generate_ai_advisory(temperature, humidity, uv_index)
         send_to_blynk("V15", ai_message)
         trigger_blynk_event("ai_weather_alert", ai_message)
@@ -99,16 +104,38 @@ def get_weather_data(latitude: float, longitude: float):
         raise HTTPException(status_code=500, detail=f"Weather API request failed: {str(e)}")
 
 def generate_ai_advisory(temperature, humidity, uv_index):
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    response = client.chat.completions.create(
+    openai.api_key = OPENAI_API_KEY
+    response = openai.Completion.create(
         model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
-            {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
-        ],
+        prompt=f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?",
         max_tokens=150
     )
-    return response.choices[0].message.content.strip()
+    return response.choices[0].text.strip()
+
+@router.post("/sensor-data")
+def process_sensor_data(sensor_data: dict):
+    """
+    Process sensor data and detect sudden changes. If a spike is detected, generate AI recommendation
+    and trigger Blynk notification.
+    """
+    THRESHOLD = 5  # Define what constitutes a significant change (e.g., 5-degree spike in temperature)
+    
+    # Example logic: Detecting temperature spike
+    temperature = sensor_data.get("temperature")
+    humidity = sensor_data.get("humidity")
+    pressure = sensor_data.get("pressure")
+    uv_index = sensor_data.get("uv_index")
+    rain_detected = sensor_data.get("rain_detected")
+    
+    last_temperature = 30  # This needs to be replaced with persistent data storage for the last value
+
+    if abs(temperature - last_temperature) > THRESHOLD:
+        ai_message = generate_ai_advisory(temperature, humidity, uv_index)
+        send_to_blynk("V15", ai_message)
+        trigger_blynk_event("ai_weather_alert", ai_message)
+        last_temperature = temperature
+    
+    return {"message": "Sensor data processed and notification triggered if needed"}
 
 @router.post("/weather")
 def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
