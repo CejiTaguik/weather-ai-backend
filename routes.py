@@ -1,10 +1,11 @@
-
-
 import os
 import requests
 from fastapi import APIRouter, Query, HTTPException, Body
 from dotenv import load_dotenv
 from openai import OpenAI
+import schedule
+import time
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -121,10 +122,25 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
 
 @router.get("/schedule_notification")
 def schedule_notification():
+    # Scheduling the AI advisory notification at 3 AM
+    schedule.every().day.at("03:00").do(send_scheduled_advisory)
+    
+    # Starting a background thread to run the schedule
+    def run_schedule():
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+    
+    # Start the background thread
+    threading.Thread(target=run_schedule, daemon=True).start()
+    
+    return {"message": "Scheduled AI advisory notifications will now be sent daily at 3 AM."}
+
+def send_scheduled_advisory():
     advisory = generate_ai_advisory(30, 80, 5)
     send_to_blynk("V15", advisory)
     trigger_blynk_event("ai_weather_alert", advisory)
-    return {"message": "Scheduled AI advisory sent"}
+    print(f"Scheduled advisory sent: {advisory}")
 
 @router.get("/blynk/test")
 def test_blynk():
