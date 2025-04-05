@@ -140,7 +140,7 @@ def send_scheduled_advisory():
 
 # Modify the fetch_weather route to accept location input and dynamically update Blynk V6
 @router.post("/weather")
-def fetch_weather(location: str = Body(None), latitude: float = Body(None), longitude: float = Body(None)):
+def fetch_weather(location: str = Body(..., embed=True), latitude: float = Body(None), longitude: float = Body(None)):
     if location:
         latitude, longitude = get_lat_lon_from_location(location)
         # Send the location to Blynk V6 (location will reflect here)
@@ -150,6 +150,17 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
         raise HTTPException(status_code=400, detail="Latitude and longitude are required")
     
     return get_weather_data(latitude, longitude)
+
+# New route to trigger AI recommendation manually to the terminal widget V7
+@router.get("/trigger_ai_recommendation")
+def trigger_ai():
+    # Generate the AI recommendation with placeholder values for temperature, humidity, and uv_index
+    ai_message = generate_ai_advisory(30, 80, 5)
+    send_to_blynk("V7", ai_message)  # Send AI recommendation to terminal widget (V7)
+    send_to_blynk("V15", ai_message)  # Send AI message to V15 for display
+    trigger_blynk_event("ai_weather_alert", ai_message)
+
+    return {"message": "AI recommendation triggered successfully", "ai_message": ai_message}
 
 @router.get("/blynk/test")
 def test_blynk():
