@@ -3,6 +3,8 @@ import requests
 import logging
 import openai
 from typing import Optional
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +18,9 @@ openai.api_key = "YOUR_OPENAI_API_KEY"
 # Initialize router for FastAPI
 router = APIRouter()
 
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+
 # Function to send data to Blynk virtual pin
 def send_to_blynk(pin: str, message: str):
     try:
@@ -27,9 +32,9 @@ def send_to_blynk(pin: str, message: str):
         logging.error(f"Error sending to Blynk: {str(e)}")
         return None
 
-# Function to generate AI recommendation for sudden weather change
+# Function to generate AI recommendation for weather conditions
 def generate_ai_recommendation(temperature: float, humidity: float, uv_index: float):
-    # Define the template structure of the recommendation that the AI will follow
+    # AI prompt with dynamic weather conditions
     prompt = f"""
     The current weather conditions are:
     Temperature: {temperature}°C
@@ -50,7 +55,7 @@ def generate_ai_recommendation(temperature: float, humidity: float, uv_index: fl
     **EDUCATIONAL TIP:**
     - [Farming advice based on the conditions]
     """
-
+    
     try:
         # Generate AI-based recommendation
         response = openai.Completion.create(
@@ -66,7 +71,7 @@ def generate_ai_recommendation(temperature: float, humidity: float, uv_index: fl
         logging.error(f"Error generating AI recommendation: {str(e)}")
         return "Error generating recommendation."
 
-# Trigger AI recommendation based on weather data
+# Trigger AI recommendation (manual execution)
 @router.get("/trigger_ai_recommendation")
 def trigger_ai():
     try:
@@ -118,3 +123,30 @@ def schedule_notification():
     except Exception as e:
         logging.error(f"Error in scheduling AI recommendation: {str(e)}")
         return {"error": str(e)}
+
+# Function to send scheduled AI recommendations at 3 AM and 6 PM
+def send_scheduled_ai_recommendation():
+    try:
+        # Fetching weather data (replace with actual sensor or API data)
+        temperature = 40  # Placeholder value, fetch from real data
+        humidity = 60      # Placeholder value, fetch from real data
+        uv_index = 7       # Placeholder value, fetch from real data
+
+        # Generate AI recommendation dynamically
+        ai_message = generate_ai_recommendation(temperature, humidity, uv_index)
+
+        # Send the AI recommendation to Virtual Pin V7 (Terminal) and V15 (AI Recommendation Display)
+        send_to_blynk("V7", ai_message)  # Terminal widget V7
+        send_to_blynk("V15", ai_message)  # AI Recommendation Display V15
+
+        logging.info(f"Scheduled AI Recommendation: {ai_message}")
+    except Exception as e:
+        logging.error(f"Error sending scheduled AI recommendation: {str(e)}")
+
+# Schedule the AI recommendation every day at 3 AM and 6 PM
+scheduler.add_job(send_scheduled_ai_recommendation, 'cron', hour=3, minute=0)
+scheduler.add_job(send_scheduled_ai_recommendation, 'cron', hour=18, minute=0)
+
+# Start the scheduler
+scheduler.start()
+
