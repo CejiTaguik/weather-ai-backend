@@ -6,3 +6,4 @@ python-dotenv
 openai
 apscheduler
 pytz
+schedule
