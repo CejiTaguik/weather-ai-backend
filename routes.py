@@ -1,6 +1,3 @@
-what is the first step? 
-
-this is my current routes on fastapi. just dont change or revise the source code:
 
 import os
 import requests
