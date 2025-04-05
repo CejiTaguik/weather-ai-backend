@@ -92,7 +92,7 @@ def get_weather_data(latitude: float, longitude: float):
             "weather_fetch": send_to_blynk("V7", "1")
         }
 
-        # Generate AI recommendation
+        # Trigger AI recommendation on V7 (terminal widget)
         ai_message = generate_ai_advisory(temperature, humidity, uv_index)
         send_to_blynk("V7", ai_message)  # Send AI recommendation to terminal widget (V7)
         send_to_blynk("V15", ai_message)  # Send AI message to V15 for display
@@ -103,7 +103,6 @@ def get_weather_data(latitude: float, longitude: float):
         raise HTTPException(status_code=500, detail=f"Weather API request failed: {str(e)}")
 
 def generate_ai_advisory(temperature, humidity, uv_index):
-    # Use OpenAI API to generate AI-based recommendation
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4",
@@ -111,11 +110,11 @@ def generate_ai_advisory(temperature, humidity, uv_index):
             {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
             {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
         ],
-        max_tokens=300
+        max_tokens=150
     )
     return response.choices[0].message.content.strip()
 
-# Modify the scheduled notifications to run at 3 AM and 6 PM, with real-time weather data.
+# Modify the scheduled notifications to run at 3 AM and 6 PM
 @router.get("/schedule_notification")
 def schedule_notification():
     # Scheduling the AI advisory notification at 3 AM and 6 PM
@@ -134,15 +133,10 @@ def schedule_notification():
     return {"message": "Scheduled AI advisory notifications will now be sent daily at 3 AM and 6 PM."}
 
 def send_scheduled_advisory():
-    # Fetch the current weather data
-    temperature = 30  # placeholder
-    humidity = 80     # placeholder
-    uv_index = 5      # placeholder
-
-    ai_message = generate_ai_advisory(temperature, humidity, uv_index)
-    send_to_blynk("V15", ai_message)
-    trigger_blynk_event("ai_weather_alert", ai_message)
-    print(f"Scheduled advisory sent: {ai_message}")
+    advisory = generate_ai_advisory(30, 80, 5)
+    send_to_blynk("V15", advisory)
+    trigger_blynk_event("ai_weather_alert", advisory)
+    print(f"Scheduled advisory sent: {advisory}")
 
 # Modify the fetch_weather route to accept location input and dynamically update Blynk V6
 @router.post("/weather")
