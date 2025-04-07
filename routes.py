@@ -91,7 +91,7 @@ def get_weather_data(latitude: float, longitude: float):
 
         ai_message = generate_ai_advisory(temperature, humidity, uv_index)
         send_to_blynk("V15", ai_message)
-        trigger_blynk_event("ai_weather_alert", ai_message)
+        trigger_blynk_event("ai_weather_alert", "New weather advisory available. Check V15.")
 
         return {"weather": weather_data, "blynk_results": blynk_results}
     except requests.RequestException as e:
@@ -99,30 +99,24 @@ def get_weather_data(latitude: float, longitude: float):
 
 def generate_ai_advisory(temperature, humidity, uv_index):
     client = OpenAI(api_key=OPENAI_API_KEY)
-    prompt = (
-        f"You are a smart farming assistant helping small farmers in the Philippines.\n\n"
-        f"Based on the weather forecast, generate a daily recommendation in the following format:\n\n"
-        f"**Weather Overview:**\n"
-        f"Summarize today's weather clearly. Example: 'Today will be warm and sunny early on, but by mid-morning, expect clouds or light rain.'\n\n"
-        f"**Action Plan:**\n"
-        f"List 2 to 3 things a farmer should do based on the weather. Focus on crops, irrigation, or pest protection.\n\n"
-        f"**Educational Tip:**\n"
-        f"Add one practical and simple farming tip based on the weather.\n\n"
-        f"Weather data:\n"
-        f"- Temperature: {temperature}°C\n"
-        f"- Humidity: {humidity}%\n"
-        f"- UV Index: {uv_index}"
-    )
-
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a helpful farming assistant that speaks in clear, farmer-friendly language."},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": (
+                "You are an AI assistant helping Filipino farmers make better decisions. "
+                "Based on the weather (temperature, humidity, UV index), provide actionable, easy-to-follow tips. "
+                "Format:\n\n"
+                "**Weather Overview:**\nShort summary of the day.\n\n"
+                "**Action Plan:**\nList 2-3 farming recommendations.\n\n"
+                "**Educational Tip:**\nProvide one useful farming fact or tip."
+            )},
+            {"role": "user", "content": (
+                f"Today's weather conditions: Temperature: {temperature}°C, "
+                f"Humidity: {humidity}%, UV Index: {uv_index}. What should a farmer do?"
+            )}
         ],
         max_tokens=300
     )
-
     return response.choices[0].message.content.strip()
 
 @router.post("/weather")
@@ -135,7 +129,7 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
 
 @router.get("/schedule_notification")
 def schedule_notification():
-    # You may customize the default location
+    # Default fallback location (Philippines)
     latitude = 13.41
     longitude = 122.56
 
@@ -148,7 +142,9 @@ def schedule_notification():
 
         advisory = generate_ai_advisory(temperature, humidity, uv_index)
         send_to_blynk("V15", advisory)
-        trigger_blynk_event("ai_weather_alert", advisory)
+
+        # Short notification message to avoid length issue
+        trigger_blynk_event("ai_weather_alert", "New weather advisory available. Check V15.")
 
         return {"message": "AI advisory sent based on forecast", "advisory": advisory}
     except Exception as e:
