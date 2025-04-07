@@ -1,4 +1,3 @@
-
 import os
 import requests
 from fastapi import APIRouter, Query, HTTPException, Body
@@ -100,14 +99,30 @@ def get_weather_data(latitude: float, longitude: float):
 
 def generate_ai_advisory(temperature, humidity, uv_index):
     client = OpenAI(api_key=OPENAI_API_KEY)
+    prompt = (
+        f"You are a smart farming assistant helping small farmers in the Philippines.\n\n"
+        f"Based on the weather forecast, generate a daily recommendation in the following format:\n\n"
+        f"**Weather Overview:**\n"
+        f"Summarize today's weather clearly. Example: 'Today will be warm and sunny early on, but by mid-morning, expect clouds or light rain.'\n\n"
+        f"**Action Plan:**\n"
+        f"List 2 to 3 things a farmer should do based on the weather. Focus on crops, irrigation, or pest protection.\n\n"
+        f"**Educational Tip:**\n"
+        f"Add one practical and simple farming tip based on the weather.\n\n"
+        f"Weather data:\n"
+        f"- Temperature: {temperature}°C\n"
+        f"- Humidity: {humidity}%\n"
+        f"- UV Index: {uv_index}"
+    )
+
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are an AI assistant providing weather advisories tailored for farmers. Give clear, practical farming tips."},
-            {"role": "user", "content": f"Given these weather conditions: Temperature: {temperature}°C, Humidity: {humidity}%, UV Index: {uv_index}, what should a farmer do to protect crops and livestock?"}
+            {"role": "system", "content": "You are a helpful farming assistant that speaks in clear, farmer-friendly language."},
+            {"role": "user", "content": prompt}
         ],
-        max_tokens=150
+        max_tokens=300
     )
+
     return response.choices[0].message.content.strip()
 
 @router.post("/weather")
@@ -120,10 +135,24 @@ def fetch_weather(location: str = Body(None), latitude: float = Body(None), long
 
 @router.get("/schedule_notification")
 def schedule_notification():
-    advisory = generate_ai_advisory(30, 80, 5)
-    send_to_blynk("V15", advisory)
-    trigger_blynk_event("ai_weather_alert", advisory)
-    return {"message": "Scheduled AI advisory sent"}
+    # You may customize the default location
+    latitude = 13.41
+    longitude = 122.56
+
+    try:
+        weather_data = get_weather_data(latitude, longitude)
+        current = weather_data["weather"]["current"]
+        temperature = current.get("temperature_2m", 30)
+        humidity = current.get("relative_humidity_2m", 80)
+        uv_index = current.get("uv_index", 5)
+
+        advisory = generate_ai_advisory(temperature, humidity, uv_index)
+        send_to_blynk("V15", advisory)
+        trigger_blynk_event("ai_weather_alert", advisory)
+
+        return {"message": "AI advisory sent based on forecast", "advisory": advisory}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send advisory: {str(e)}")
 
 @router.get("/blynk/test")
 def test_blynk():
